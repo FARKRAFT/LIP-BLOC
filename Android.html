@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Log Pro Móvil</title>
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#0084ff">
+    
+    <style>
+        :root { --bg: #f4f7f6; --text: #2c3e50; --primary: #0084ff; --dark: #1a1a1b; }
+        body { font-family: sans-serif; margin: 0; background: var(--bg); color: var(--text); padding-bottom: 80px; }
+        
+        header { background: var(--primary); color: white; padding: 15px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        
+        .container { padding: 10px; }
+        .row { background: white; border-radius: 12px; padding: 10px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        
+        .row-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .time-input { border: none; font-weight: bold; font-size: 1.1em; color: var(--primary); background: transparent; }
+        
+        textarea { width: 100%; border: 1px solid #eee; border-radius: 8px; padding: 10px; font-size: 16px; box-sizing: border-box; resize: none; }
+        
+        /* Panel de Keywords */
+        .keywords-section { padding: 10px; overflow-x: auto; white-space: nowrap; background: #fff; border-bottom: 1px solid #ddd; }
+        .key-btn { display: inline-block; background: #e0e7ff; color: #4338ca; padding: 8px 15px; border-radius: 20px; margin-right: 8px; font-size: 0.9em; font-weight: bold; }
+
+        /* Barra Inferior de Acciones */
+        .action-bar { position: fixed; bottom: 0; width: 100%; background: white; display: flex; justify-content: space-around; padding: 10px 0; border-top: 1px solid #ddd; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); }
+        .fab { width: 50px; height: 50px; border-radius: 25px; border: none; color: white; font-size: 20px; display: flex; align-items: center; justify-content: center; }
+    </style>
+</head>
+<body>
+
+<header>
+    <strong>Log Pro Móvil</strong>
+    <button onclick="saveSelectedAsKey()" style="float:right; background:rgba(255,255,255,0.2); border:none; color:white; border-radius:5px; padding:5px;">+ Keyword</button>
+</header>
+
+<div class="keywords-section" id="key-bar">
+    </div>
+
+<div class="container" id="logs">
+    <div class="row">
+        <div class="row-header">
+            <input type="time" class="time-input" value="12:00">
+            <span style="font-size: 0.8em; color: #999;">Nuevo Renglón</span>
+        </div>
+        <textarea rows="2" placeholder="Escriba aquí..." oninput="processText(this)" onfocus="lastFocus = this"></textarea>
+    </div>
+</div>
+
+<div class="action-bar">
+    <button onclick="undo()" style="background:#6c757d" class="fab">↩️</button>
+    <button onclick="startVoice()" style="background:#28a745" class="fab">🎤</button>
+    <button onclick="addNewRow()" style="background:#0084ff" class="fab">➕</button>
+    <button onclick="superCorrect()" style="background:#ffc107" class="fab">✨</button>
+    <button onclick="copyAll()" style="background:#000" class="fab">📋</button>
+</div>
+
+<script>
+    let lastFocus;
+
+    function processText(el) {
+        lastFocus = el;
+        // Extracción de hora automática
+        const match = el.value.match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/);
+        if (match) {
+            el.closest('.row').querySelector('.time-input').value = match[0];
+            el.value = el.value.replace(match[0], '').trim();
+        }
+    }
+
+    function addNewRow() {
+        const div = document.createElement('div');
+        div.className = 'row';
+        const now = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        div.innerHTML = `
+            <div class="row-header">
+                <input type="time" class="time-input" value="${now}">
+            </div>
+            <textarea rows="2" placeholder="Siguiente nota..." oninput="processText(this)" onfocus="lastFocus = this"></textarea>
+        `;
+        document.getElementById('logs').appendChild(div);
+        div.querySelector('textarea').focus();
+        window.scrollTo(0, document.body.scrollHeight);
+    }
+
+    function saveSelectedAsKey() {
+        const text = window.getSelection().toString().trim();
+        if (text) {
+            let keys = JSON.parse(localStorage.getItem('android_keys') || '[]');
+            if (!keys.includes(text)) {
+                keys.push(text);
+                localStorage.setItem('android_keys', JSON.stringify(keys));
+                renderKeys();
+            }
+        } else {
+            alert("Subraya una palabra del texto primero");
+        }
+    }
+
+    function renderKeys() {
+        const bar = document.getElementById('key-bar');
+        const keys = JSON.parse(localStorage.getItem('android_keys') || '[]');
+        bar.innerHTML = keys.map(k => `<span class="key-btn" onclick="insertKey('${k}')">${k}</span>`).join("");
+    }
+
+    function insertKey(k) {
+        if (lastFocus) {
+            lastFocus.value += (lastFocus.value ? " " : "") + k;
+            lastFocus.focus();
+        }
+    }
+
+    function superCorrect() {
+        document.querySelectorAll('textarea').forEach(t => {
+            let v = t.value.trim();
+            if(!v) return;
+            v = v.charAt(0).toUpperCase() + v.slice(1);
+            if(!/[.!?]$/.test(v)) v += ".";
+            t.value = v;
+        });
+    }
+
+    function copyAll() {
+        let final = "";
+        document.querySelectorAll('.row').forEach(r => {
+            const time = r.querySelector('.time-input').value;
+            const txt = r.querySelector('textarea').value;
+            if(txt) final += `${time}. ${txt}\n\n\n`;
+        });
+        navigator.clipboard.writeText(final.trim());
+        alert("¡Copiado con éxito!");
+    }
+
+    function startVoice() {
+        const rec = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        rec.lang = 'es-ES';
+        rec.onresult = (e) => {
+            const t = e.results[0][0].transcript;
+            if(lastFocus) {
+                lastFocus.value += t;
+                processText(lastFocus);
+            }
+        };
+        rec.start();
+    }
+
+    function undo() { document.execCommand('undo'); }
+
+    window.onload = renderKeys;
+</script>
+</body>
+</html>
