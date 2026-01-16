@@ -2,208 +2,154 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Log Pro Móvil</title>
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#0084ff">
-    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log Pro Ultra</title>
     <style>
-        :root { --bg: #f4f7f6; --text: #2c3e50; --primary: #0084ff; --dark: #1a1a1b; }
-        body { font-family: sans-serif; margin: 0; background: var(--bg); color: var(--text); padding-bottom: 80px; }
+        :root { --bg: #f4f7f6; --text: #2c3e50; --panel: #ffffff; --primary: #0084ff; }
+        .dark-mode { --bg: #1a1a1b; --text: #e4e6eb; --panel: #242526; --primary: #3d5afe; }
         
-        header { background: var(--primary); color: white; padding: 15px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        body { font-family: sans-serif; background: var(--bg); color: var(--text); margin: 0; padding-bottom: 100px; transition: 0.3s; }
+        .row { background: var(--panel); margin: 10px; padding: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        textarea { width: 100%; border: 1px solid #ddd; border-radius: 8px; padding: 10px; font-size: 16px; background: var(--panel); color: var(--text); box-sizing: border-box; }
         
-        .container { padding: 10px; }
-        .row { background: white; border-radius: 12px; padding: 10px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .controls { position: fixed; bottom: 0; width: 100%; background: var(--panel); display: flex; flex-wrap: wrap; justify-content: space-around; padding: 10px 0; border-top: 2px solid var(--primary); }
+        .btn { padding: 12px; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; font-size: 14px; }
         
-        .row-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
-        .time-input { border: none; font-weight: bold; font-size: 1.1em; color: var(--primary); background: transparent; }
-        
-        textarea { width: 100%; border: 1px solid #eee; border-radius: 8px; padding: 10px; font-size: 16px; box-sizing: border-box; resize: none; }
-        
-        /* Panel de Keywords */
-        .keywords-section { padding: 10px; overflow-x: auto; white-space: nowrap; background: #fff; border-bottom: 1px solid #ddd; }
-        .key-btn { display: inline-block; background: #e0e7ff; color: #4338ca; padding: 8px 15px; border-radius: 20px; margin-right: 8px; font-size: 0.9em; font-weight: bold; }
-
-        /* Barra Inferior de Acciones */
-        .action-bar { position: fixed; bottom: 0; width: 100%; background: white; display: flex; justify-content: space-around; padding: 10px 0; border-top: 1px solid #ddd; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); }
-        .fab { width: 50px; height: 50px; border-radius: 25px; border: none; color: white; font-size: 20px; display: flex; align-items: center; justify-content: center; }
+        #config-panel { padding: 15px; background: var(--panel); border-bottom: 1px solid #ddd; display: none; }
     </style>
 </head>
-<body>
+<body id="appBody">
 
-<header>
-    <strong>Log Pro Móvil</strong>
-    <button onclick="saveSelectedAsKey()" style="float:right; background:rgba(255,255,255,0.2); border:none; color:white; border-radius:5px; padding:5px;">+ Keyword</button>
-</header>
+<div id="config-panel">
+    <h4>Configuración</h4>
+    Idioma Voz: <select id="langSelect">
+        <option value="es-ES">Español (España)</option>
+        <option value="es-AR">Español (Argentina)</option>
+        <option value="es-MX">Español (México)</option>
+        <option value="en-US">Inglés (USA)</option>
+    </select>
+    <br><br>
+    Color Fondo: <input type="color" onchange="document.body.style.backgroundColor = this.value">
+    <button onclick="toggleDarkMode()" class="btn">🌓 Modo Noche</button>
+</div>
 
-<div class="keywords-section" id="key-bar">
-    </div>
-
-<div class="container" id="logs">
+<div id="main-container">
     <div class="row">
-        <div class="row-header">
-            <input type="time" class="time-input" value="12:00">
-            <span style="font-size: 0.8em; color: #999;">Nuevo Renglón</span>
-        </div>
-        <textarea rows="2" placeholder="Escriba aquí..." oninput="processText(this)" onfocus="lastFocus = this"></textarea>
+        <input type="time" class="time-input" value="12:00" style="border:none; font-weight:bold; color:var(--primary); background:transparent;">
+        <textarea rows="3" oninput="processInput(this)" onfocus="lastActive = this" placeholder="Escriba o use micrófono..."></textarea>
     </div>
 </div>
 
-<div class="action-bar">
-    <button onclick="undo()" style="background:#6c757d" class="fab">↩️</button>
-    <button onclick="startVoice()" style="background:#28a745" class="fab">🎤</button>
-    <button onclick="addNewRow()" style="background:#0084ff" class="fab">➕</button>
-    <button onclick="superCorrect()" style="background:#ffc107" class="fab">✨</button>
-    <button onclick="copyAll()" style="background:#000" class="fab">📋</button>
+<div class="controls">
+    <button onclick="toggleConfig()" class="btn" style="background:#6c757d; color:white">⚙️</button>
+    <button onclick="startVoice()" id="micBtn" class="btn" style="background:#28a745; color:white">🎤 Iniciar</button>
+    <button onclick="superCorrect()" class="btn" style="background:#ffc107">✨ Corregir</button>
+    <button onclick="addNewRow()" class="btn" style="background:#0084ff; color:white">➕ Fila</button>
+    <button onclick="copyAll()" class="btn" style="background:#000; color:white">📋 Copiar</button>
 </div>
 
 <script>
-    let lastFocus;
+    let lastActive = document.querySelector('textarea');
 
-    function processText(el) {
-        lastFocus = el;
-        // Extracción de hora automática
+    // 1. CORRECTOR MEJORADO (Acentos, Puntos, Mayúsculas)
+    function superCorrect() {
+        document.querySelectorAll('textarea').forEach(area => {
+            let t = area.value.trim();
+            if(!t) return;
+            
+            // Diccionario de correcciones comunes
+            const replacements = [
+                { r: /\bpaso\b/gi, s: "pasó" }, { r: /\bpolicia\b/gi, s: "policía" },
+                { r: /\bmovil\b/gi, s: "móvil" }, { r: /\bdia\b/gi, s: "día" },
+                { r: /\bvehiculo\b/gi, s: "vehículo" }, { r: /\besta\b/gi, s: "está" }
+            ];
+            replacements.forEach(rule => t = t.replace(rule.r, rule.s));
+
+            // Coherencia: Mayúscula inicial, quitar espacios dobles, punto final
+            t = t.replace(/\s+/g, ' '); 
+            t = t.charAt(0).toUpperCase() + t.slice(1);
+            if (!/[.!?]$/.test(t)) t += ".";
+            
+            area.value = t;
+        });
+        alert("Corrección aplicada");
+    }
+
+    // 2. MICRÓFONO (Solución para Android)
+    function startVoice() {
+        const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!Speech) return alert("Tu navegador no soporta voz");
+
+        const rec = new Speech();
+        rec.lang = document.getElementById('langSelect').value;
+        rec.continuous = false;
+
+        document.getElementById('micBtn').style.background = "red";
+        document.getElementById('micBtn').innerText = "🔴 Grabando...";
+
+        rec.onresult = (e) => {
+            const transcript = e.results[0][0].transcript;
+            if(lastActive) {
+                lastActive.value += (lastActive.value ? " " : "") + transcript;
+                processInput(lastActive);
+            }
+        };
+
+        rec.onend = () => {
+            document.getElementById('micBtn').style.background = "#28a745";
+            document.getElementById('micBtn').innerText = "🎤 Iniciar";
+        };
+
+        rec.onerror = (e) => alert("Error de mic: " + e.error);
+        rec.start();
+    }
+
+    // 3. COPIADO REAL (Método Forzado)
+    function copyAll() {
+        let text = "";
+        document.querySelectorAll('.row').forEach(r => {
+            const time = r.querySelector('.time-input').value;
+            const val = r.querySelector('textarea').value;
+            if(val) text += `${time}. ${val}\n\n\n`;
+        });
+
+        const temp = document.createElement("textarea");
+        temp.value = text.trim();
+        document.body.appendChild(temp);
+        temp.select();
+        document.execCommand("copy");
+        document.body.removeChild(temp);
+        alert("¡Copiado al portapapeles!");
+    }
+
+    // EXTRAS: UI y Filas
+    function toggleConfig() {
+        const p = document.getElementById('config-panel');
+        p.style.display = p.style.display === 'block' ? 'none' : 'block';
+    }
+
+    function toggleDarkMode() {
+        document.body.classList.toggle('dark-mode');
+    }
+
+    function addNewRow() {
+        const container = document.getElementById('main-container');
+        const now = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+        const div = document.createElement('div');
+        div.className = 'row';
+        div.innerHTML = `<input type="time" class="time-input" value="${now}" style="border:none; font-weight:bold; color:var(--primary); background:transparent;"><textarea rows="3" oninput="processInput(this)" onfocus="lastActive = this"></textarea>`;
+        container.appendChild(div);
+        div.querySelector('textarea').focus();
+    }
+
+    function processInput(el) {
+        lastActive = el;
         const match = el.value.match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/);
         if (match) {
             el.closest('.row').querySelector('.time-input').value = match[0];
             el.value = el.value.replace(match[0], '').trim();
         }
     }
-
-    function addNewRow() {
-        const div = document.createElement('div');
-        div.className = 'row';
-        const now = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-        div.innerHTML = `
-            <div class="row-header">
-                <input type="time" class="time-input" value="${now}">
-            </div>
-            <textarea rows="2" placeholder="Siguiente nota..." oninput="processText(this)" onfocus="lastFocus = this"></textarea>
-        `;
-        document.getElementById('logs').appendChild(div);
-        div.querySelector('textarea').focus();
-        window.scrollTo(0, document.body.scrollHeight);
-    }
-
-    function saveSelectedAsKey() {
-        const text = window.getSelection().toString().trim();
-        if (text) {
-            let keys = JSON.parse(localStorage.getItem('android_keys') || '[]');
-            if (!keys.includes(text)) {
-                keys.push(text);
-                localStorage.setItem('android_keys', JSON.stringify(keys));
-                renderKeys();
-            }
-        } else {
-            alert("Subraya una palabra del texto primero");
-        }
-    }
-
-    function renderKeys() {
-        const bar = document.getElementById('key-bar');
-        const keys = JSON.parse(localStorage.getItem('android_keys') || '[]');
-        bar.innerHTML = keys.map(k => `<span class="key-btn" onclick="insertKey('${k}')">${k}</span>`).join("");
-    }
-
-    function insertKey(k) {
-        if (lastFocus) {
-            lastFocus.value += (lastFocus.value ? " " : "") + k;
-            lastFocus.focus();
-        }
-    }
-
-    function superCorrect() {
-        document.querySelectorAll('textarea').forEach(t => {
-            let v = t.value.trim();
-            if(!v) return;
-            v = v.charAt(0).toUpperCase() + v.slice(1);
-            if(!/[.!?]$/.test(v)) v += ".";
-            t.value = v;
-        });
-    }
-
-    function copyAll() {
-        let final = "";
-        document.querySelectorAll('.row').forEach(r => {
-            const time = r.querySelector('.time-input').value;
-            const txt = r.querySelector('textarea').value;
-            if(txt) final += `${time}. ${txt}\n\n\n`;
-        });
-        navigator.clipboard.writeText(final.trim());
-        alert("¡Copiado con éxito!");
-    }
-
-    function startVoice() {
-        const rec = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-        rec.lang = 'es-ES';
-        rec.onresult = (e) => {
-            const t = e.results[0][0].transcript;
-            if(lastFocus) {
-                lastFocus.value += t;
-                processText(lastFocus);
-            }
-        };
-        rec.start();
-    }
-
-    function undo() { document.execCommand('undo'); }
-
-    window.onload = renderKeys;
-    function copyAll() {
-    let final = "";
-    const rows = document.querySelectorAll('.row');
-    
-    rows.forEach(r => {
-        const time = r.querySelector('.time-input').value;
-        const txt = r.querySelector('textarea, .text-input').value; // Compatible con PC y Móvil
-        if(txt) {
-            // Aplicamos los 3 saltos de línea (2 de diferencia)
-            final += time + ". " + txt + "\n\n\n";
-        }
-    });
-
-    const textToCopy = final.trim();
-
-    if (!textToCopy) {
-        alert("No hay nada escrito para copiar.");
-        return;
-    }
-
-    // INTENTO 1: API Moderna
-    navigator.clipboard.writeText(textToCopy).then(() => {
-        alert("¡Copiado con éxito (API)!");
-    }).catch(err => {
-        // INTENTO 2: Método de respaldo (Fallback) si falla el primero
-        console.log("Fallo API, usando método alternativo...");
-        
-        const textArea = document.createElement("textarea");
-        textArea.value = textToCopy;
-        
-        // Aseguramos que no se vea pero que esté en el documento
-        textArea.style.position = "fixed";
-        textArea.style.left = "-9999px";
-        textArea.style.top = "0";
-        document.body.appendChild(textArea);
-        
-        textArea.focus();
-        textArea.select();
-        textArea.setSelectionRange(0, 99999); // Para móviles
-
-        try {
-            const successful = document.execCommand('copy');
-            if(successful) {
-                alert("¡Copiado con éxito (Respaldo)!");
-            } else {
-                alert("Error crítico: No se pudo copiar.");
-            }
-        } catch (err) {
-            alert("Tu dispositivo bloqueó el copiado automático.");
-        }
-
-        document.body.removeChild(textArea);
-    });
-}
 </script>
 </body>
 </html>
