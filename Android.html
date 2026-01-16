@@ -150,6 +150,60 @@
     function undo() { document.execCommand('undo'); }
 
     window.onload = renderKeys;
+    function copyAll() {
+    let final = "";
+    const rows = document.querySelectorAll('.row');
+    
+    rows.forEach(r => {
+        const time = r.querySelector('.time-input').value;
+        const txt = r.querySelector('textarea, .text-input').value; // Compatible con PC y Móvil
+        if(txt) {
+            // Aplicamos los 3 saltos de línea (2 de diferencia)
+            final += time + ". " + txt + "\n\n\n";
+        }
+    });
+
+    const textToCopy = final.trim();
+
+    if (!textToCopy) {
+        alert("No hay nada escrito para copiar.");
+        return;
+    }
+
+    // INTENTO 1: API Moderna
+    navigator.clipboard.writeText(textToCopy).then(() => {
+        alert("¡Copiado con éxito (API)!");
+    }).catch(err => {
+        // INTENTO 2: Método de respaldo (Fallback) si falla el primero
+        console.log("Fallo API, usando método alternativo...");
+        
+        const textArea = document.createElement("textarea");
+        textArea.value = textToCopy;
+        
+        // Aseguramos que no se vea pero que esté en el documento
+        textArea.style.position = "fixed";
+        textArea.style.left = "-9999px";
+        textArea.style.top = "0";
+        document.body.appendChild(textArea);
+        
+        textArea.focus();
+        textArea.select();
+        textArea.setSelectionRange(0, 99999); // Para móviles
+
+        try {
+            const successful = document.execCommand('copy');
+            if(successful) {
+                alert("¡Copiado con éxito (Respaldo)!");
+            } else {
+                alert("Error crítico: No se pudo copiar.");
+            }
+        } catch (err) {
+            alert("Tu dispositivo bloqueó el copiado automático.");
+        }
+
+        document.body.removeChild(textArea);
+    });
+}
 </script>
 </body>
 </html>
